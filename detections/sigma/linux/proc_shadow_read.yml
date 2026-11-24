@@ -1,0 +1,29 @@
+title: Read Access to /etc/shadow
+id: 6c3d9f01-2b7a-4f1e-9a1c-0f2e7b5d1b02
+status: experimental
+description: >
+  A non-package-manager process opened /etc/shadow — offline credential access /
+  hash harvesting. Requires the auditd watch on identity files (telemetry/linux/audit.rules).
+references:
+  - https://attack.mitre.org/techniques/T1003/008/
+author: home-soc-lab
+date: 2026/07/31
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'PATH'
+    name: '/etc/shadow'
+  filter:
+    comm:
+      - 'passwd'
+      - 'unix_chkpwd'
+      - 'sshd'
+  condition: selection and not filter
+falsepositives:
+  - Backup agents reading /etc; allow-list them by comm.
+level: high
+tags:
+  - attack.credential-access
+  - attack.t1003.008

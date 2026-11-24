@@ -1,0 +1,133 @@
+<!--
+  home-soc-lab custom detection rules (Wazuh-native).
+  These are the CORRELATION + high-fidelity rules that Sigma can't express well
+  (stateful "X then Y" logic lives here). Single-event detections are authored as
+  Sigma under detections/sigma/ and converted; the composites below are the reason
+  this lab is a SOC and not a log viewer.
+
+  IDs use the 100000+ custom range. Every rule carries a <mitre> tag; keep them in
+  sync with coverage/attack-navigator-layer.json.
+
+  Field anchoring: we match on win.system.channel + win.system.eventID rather than
+  if_group, so rules survive Wazuh ruleset group-name changes across versions.
+-->
+<group name="local,soc_lab,">
+
+  <!-- ══ Windows brute force → success (T1110) ═══════════════════════════════ -->
+  <!-- Stage 1: many 4625 (failed logon) from one source IP in a short window.  -->
+  <rule id="100200" level="10" frequency="8" timeframe="120">
+    <if_matched_sid>60204</if_matched_sid>   <!-- built-in: Windows logon failure 4625 -->
+    <same_source_ip />
+    <description>Windows brute force: 8+ failed logons from same source in 120s</description>
+    <mitre><id>T1110</id></mitre>
+    <group>authentication_failures,pci_dss_11.4,</group>
+  </rule>
+
+  <!-- Stage 2: a SUCCESSFUL logon (4624) from an IP that just brute-forced.    -->
+  <!-- This composite is the case-worthy alert — either event alone is noise.   -->
+  <rule id="100201" level="13" frequency="1" timeframe="300">
+    <if_matched_sid>100200</if_matched_sid>
+    <field name="win.system.eventID">^4624$</field>
+    <same_source_ip />
+    <description>Windows brute force FOLLOWED BY SUCCESS from same source — likely compromise</description>
+    <mitre><id>T1110</id></mitre>
+    <group>authentication_success,</group>
+  </rule>
+
+  <!-- ══ SSH brute force → success (T1110) ═══════════════════════════════════ -->
+  <rule id="100210" level="12" frequency="1" timeframe="300">
+    <if_matched_sid>5720</if_matched_sid>   <!-- built-in: multiple SSHD auth failures -->
+    <if_group>authentication_success</if_group>
+    <same_source_ip />
+    <description>SSH successful login from an IP with prior brute force — likely compromise</description>
+    <mitre><id>T1110</id></mitre>
+  </rule>
+
+  <!-- ══ Phishing execution: Office app spawns an interpreter (T1566.001/T1059) ═ -->
+  <rule id="100220" level="12">
+    <field name="win.system.channel">Microsoft-Windows-Sysmon/Operational</field>
+    <field name="win.system.eventID">^1$</field>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\(winword|excel|powerpnt|outlook|onenote)\.exe$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32)\.exe$</field>
+    <description>Office application spawned a script interpreter — phishing/macro execution</description>
+    <mitre><id>T1566.001</id><id>T1059.001</id></mitre>
+  </rule>
+
+  <!-- ══ Suspicious PowerShell command line (T1059.001) ══════════════════════ -->
+  <rule id="100230" level="12">
+    <field name="win.system.channel">Microsoft-Windows-Sysmon/Operational</field>
+    <field name="win.system.eventID">^1$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(powershell|pwsh)\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(-enc\s|-encodedcommand|frombase64string|-nop\s|-w\s+hidden|-windowstyle\s+hidden|downloadstring|downloadfile|invoke-expression|\biex\b|invoke-webrequest|net\.webclient)</field>
+    <description>Suspicious PowerShell: obfuscation / download-and-execute pattern</description>
+    <mitre><id>T1059.001</id><id>T1027</id></mitre>
+  </rule>
+
+  <!-- ══ LOLBin download/execute (T1105 / T1218) ═════════════════════════════ -->
+  <rule id="100240" level="10">
+    <field name="win.system.channel">Microsoft-Windows-Sysmon/Operational</field>
+    <field name="win.system.eventID">^1$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(certutil|mshta|regsvr32|rundll32|bitsadmin|installutil|msbuild)\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(https?://|ftp://|-urlcache|/i:|javascript:|scrobj\.dll|-decode|-encode)</field>
+    <description>Living-off-the-land binary used for download/proxy execution</description>
+    <mitre><id>T1105</id><id>T1218</id></mitre>
+  </rule>
+
+  <!-- ══ LSASS access — credential dumping (T1003.001) ═══════════════════════ -->
+  <rule id="100250" level="12">
+    <field name="win.system.channel">Microsoft-Windows-Sysmon/Operational</field>
+    <field name="win.system.eventID">^10$</field>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">(?i)0x(1010|1410|1438|143a|1fffff|1f0fff|1f1fff)</field>
+    <description>Process opened LSASS with dump-capable access — possible credential theft</description>
+    <mitre><id>T1003.001</id></mitre>
+  </rule>
+
+  <!-- ══ Run-key persistence (T1547.001) ═════════════════════════════════════ -->
+  <rule id="100260" level="10">
+    <field name="win.system.channel">Microsoft-Windows-Sysmon/Operational</field>
+    <field name="win.system.eventID">^13$</field>
+    <field name="win.eventdata.targetObject" type="pcre2">(?i)\\CurrentVersion\\(Run|RunOnce|RunServices|Policies\\Explorer\\Run)</field>
+    <description>Registry Run-key set — autostart persistence</description>
+    <mitre><id>T1547.001</id></mitre>
+  </rule>
+
+  <!-- ══ CreateRemoteThread — process injection (T1055) ══════════════════════ -->
+  <rule id="100270" level="12">
+    <field name="win.system.channel">Microsoft-Windows-Sysmon/Operational</field>
+    <field name="win.system.eventID">^8$</field>
+    <field name="win.eventdata.sourceImage" type="pcre2">(?i)\\(powershell|pwsh|rundll32|regsvr32|cmd)\.exe$</field>
+    <description>CreateRemoteThread from a script/LOLBin process — likely injection</description>
+    <mitre><id>T1055</id></mitre>
+  </rule>
+
+  <!-- ══ Suricata high-severity IDS alert → SOC-visible level ════════════════ -->
+  <rule id="100500" level="10">
+    <decoded_as>json</decoded_as>
+    <field name="event_type">^alert$</field>
+    <field name="alert.severity">^1$</field>
+    <description>Suricata high-severity IDS alert: $(alert.signature)</description>
+    <mitre><id>T1071</id></mitre>
+    <group>ids,suricata,</group>
+  </rule>
+
+  <!-- ══ MISP IOC match (populated by the custom-misp integration) ═══════════ -->
+  <!-- The integration (see integrations/custom-misp) enriches events that match -->
+  <!-- a MISP attribute and re-injects them with an "integration":"misp" field.  -->
+  <rule id="100600" level="12">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^misp$</field>
+    <description>MISP threat-intel match on telemetry — known-bad indicator observed</description>
+    <mitre><id>T1071</id></mitre>
+    <group>threat_intel,misp,</group>
+  </rule>
+
+  <!-- ══ auditd flagged key (Linux) — ties to telemetry/linux/audit.rules ════ -->
+  <rule id="100700" level="10">
+    <if_group>audit</if_group>
+    <field name="audit.key" type="pcre2">(?i)(susp_activity|recon|priv_esc|T1543|T1548|shell_config|sudoers)</field>
+    <description>auditd flagged activity, key=$(audit.key)</description>
+    <mitre><id>T1059.004</id></mitre>
+  </rule>
+
+</group>

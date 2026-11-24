@@ -1,0 +1,18 @@
+# SOC-lab custom Suricata rules (supplement ET Open, don't replace it).
+# sid range 9000000+ is reserved for local rules. Reload: suricata-update && kill -USR2 <pid>
+# These give you deterministic alerts to validate the pipeline even before ET Open loads.
+
+# Nmap / masscan style SYN scan (many SYNs, few payloads) — coarse but useful in a lab
+alert tcp any any -> $HOME_NET any (msg:"SOC-LAB Possible port scan (SYN) T1046"; flags:S; threshold:type both,track by_src,count 30,seconds 5; classtype:attempted-recon; sid:9000001; rev:1; metadata:mitre_technique_id T1046;)
+
+# Hydra/NetExec SMB spray — repeated SMB session setups from one source
+alert tcp any any -> $HOME_NET 445 (msg:"SOC-LAB SMB brute force / spray T1110"; flow:to_server; threshold:type both,track by_src,count 15,seconds 30; classtype:attempted-user; sid:9000002; rev:1; metadata:mitre_technique_id T1110;)
+
+# Cleartext HTTP EXE download from external — dropper retrieval
+alert http $EXTERNAL_NET any -> $HOME_NET any (msg:"SOC-LAB EXE downloaded over HTTP T1105"; flow:established,to_client; file_data; content:"MZ"; startswith; classtype:trojan-activity; sid:9000003; rev:1; metadata:mitre_technique_id T1105;)
+
+# DNS TXT queries with long labels — possible DNS tunneling/exfil
+alert dns $HOME_NET any -> any any (msg:"SOC-LAB Long DNS query (possible tunneling/exfil) T1048"; dns.query; content:!"."; pcre:"/[a-zA-Z0-9]{40,}/"; classtype:policy-violation; sid:9000004; rev:1; metadata:mitre_technique_id T1048;)
+
+# Known test C2 user-agent (matches the Caldera/Sandcat default if unchanged)
+alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"SOC-LAB Suspicious C2-like User-Agent T1071.001"; flow:to_server; http.user_agent; content:"python-requests"; classtype:trojan-activity; sid:9000005; rev:1; metadata:mitre_technique_id T1071.001;)

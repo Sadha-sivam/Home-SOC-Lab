@@ -1,0 +1,10 @@
+# Dashboard -> Wazuh manager API connection. The password here MUST equal
+# API_PASSWORD in .env (the manager sets its wazuh-wui password from that env var
+# on boot). If you change API_PASSWORD, change it here too.
+hosts:
+  - default:
+      url: "https://wazuh.manager"
+      port: 55000
+      username: wazuh-wui
+      password: "ChangeMe_WazuhAPI_2026!"
+      run_as: false

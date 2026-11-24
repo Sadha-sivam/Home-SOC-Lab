@@ -1,0 +1,25 @@
+title: Registry Run Key Persistence
+id: 6c3d9f01-2b7a-4f1e-9a1c-0f2e7b5d1a04
+status: experimental
+description: A value was written to an autostart Run/RunOnce key — boot/logon persistence.
+references:
+  - https://attack.mitre.org/techniques/T1547/001/
+author: home-soc-lab
+date: 2026/07/31
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\CurrentVersion\Run\'
+      - '\CurrentVersion\RunOnce\'
+      - '\CurrentVersion\RunServices\'
+      - '\Policies\Explorer\Run\'
+  condition: selection
+falsepositives:
+  - Legitimate installers add Run keys; correlate with an unsigned/newly-created image.
+level: medium
+tags:
+  - attack.persistence
+  - attack.t1547.001

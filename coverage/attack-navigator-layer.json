@@ -1,0 +1,60 @@
+{
+  "name": "Home SOC Lab — Detection Coverage",
+  "versions": {
+    "attack": "15",
+    "navigator": "5.0.0",
+    "layer": "4.5"
+  },
+  "domain": "enterprise-attack",
+  "description": "Techniques this lab detects. Score 100 = validated by an emulation and firing; 50 = partial/needs tuning. Keep in sync with detections/README.md. Import at https://mitre-attack.github.io/attack-navigator/",
+  "filters": {
+    "platforms": ["Windows", "Linux"]
+  },
+  "sorting": 0,
+  "layout": {
+    "layout": "side",
+    "showID": true,
+    "showName": true
+  },
+  "hideDisabled": false,
+  "techniques": [
+    { "techniqueID": "T1566", "score": 100, "comment": "Phishing chain via GoPhish; rule 100220", "enabled": true },
+    { "techniqueID": "T1566.001", "score": 100, "comment": "Office->interpreter; Sigma proc_office_spawning_interpreter + Wazuh 100220", "enabled": true },
+    { "techniqueID": "T1059", "score": 100, "comment": "Command/scripting interpreter", "enabled": true },
+    { "techniqueID": "T1059.001", "score": 100, "comment": "PowerShell; Sigma + Wazuh 100230; Atomic T1059.001", "enabled": true },
+    { "techniqueID": "T1059.004", "score": 50, "comment": "Unix shell; auditd susp_activity key / rule 100700", "enabled": true },
+    { "techniqueID": "T1027", "score": 50, "comment": "Obfuscation caught via encoded PowerShell (100230)", "enabled": true },
+    { "techniqueID": "T1105", "score": 100, "comment": "LOLBin/HTTP download; Wazuh 100240 + Suricata 9000003", "enabled": true },
+    { "techniqueID": "T1218", "score": 100, "comment": "Signed-binary proxy exec; Sigma + Wazuh 100240; Atomic T1218.010", "enabled": true },
+    { "techniqueID": "T1003", "score": 100, "comment": "OS credential dumping", "enabled": true },
+    { "techniqueID": "T1003.001", "score": 100, "comment": "LSASS memory; Sigma + Wazuh 100250; Atomic T1003.001", "enabled": true },
+    { "techniqueID": "T1003.008", "score": 100, "comment": "/etc/passwd+shadow; Sigma proc_shadow_read + auditd", "enabled": true },
+    { "techniqueID": "T1547", "score": 100, "comment": "Boot/logon autostart", "enabled": true },
+    { "techniqueID": "T1547.001", "score": 100, "comment": "Run keys; Sigma + Wazuh 100260; Atomic T1547.001", "enabled": true },
+    { "techniqueID": "T1055", "score": 100, "comment": "Process injection; Sysmon EID8 + Wazuh 100270; Atomic T1055", "enabled": true },
+    { "techniqueID": "T1110", "score": 100, "comment": "Brute force + brute-force-then-success; Wazuh 100200/100201/100210; bruteforce.sh", "enabled": true },
+    { "techniqueID": "T1046", "score": 100, "comment": "Network service scanning; Suricata 9000001", "enabled": true },
+    { "techniqueID": "T1071", "score": 50, "comment": "App-layer C2; Suricata + MISP match 100600", "enabled": true },
+    { "techniqueID": "T1071.001", "score": 50, "comment": "Web C2 user-agent; Suricata 9000005", "enabled": true },
+    { "techniqueID": "T1048", "score": 50, "comment": "DNS exfil/tunneling; Suricata 9000004", "enabled": true },
+    { "techniqueID": "T1021", "score": 50, "comment": "Lateral movement; runbook + correlation (build correlation rule)", "enabled": true },
+    { "techniqueID": "T1543", "score": 50, "comment": "New service persistence; Sysmon 13 \\Services\\ + auditd T1543", "enabled": true },
+    { "techniqueID": "T1548", "score": 50, "comment": "Privilege escalation; auditd priv_esc/T1548 keys / rule 100700", "enabled": true }
+  ],
+  "gradient": {
+    "colors": ["#ff6666", "#ffe766", "#8ec843"],
+    "minValue": 0,
+    "maxValue": 100
+  },
+  "legendItems": [
+    { "label": "Validated & firing (100)", "color": "#8ec843" },
+    { "label": "Partial / needs tuning (50)", "color": "#ffe766" }
+  ],
+  "metadata": [
+    { "name": "lab", "value": "home-soc-lab" },
+    { "name": "source-of-truth", "value": "detections/ + stack/wazuh/custom-rules/" }
+  ],
+  "showTacticRowBackground": true,
+  "tacticRowBackground": "#205b8f",
+  "selectTechniquesAcrossTactics": true
+}

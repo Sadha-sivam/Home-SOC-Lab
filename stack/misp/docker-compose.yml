@@ -1,0 +1,69 @@
+# MISP threat-intel platform, based on the official misp/misp-docker images.
+# core + modules (enrichment) + mariadb + redis.
+#
+# First boot takes a few minutes (DB init). Then:
+#   - log in at https://localhost:8443  (MISP_ADMIN_EMAIL / MISP_ADMIN_PASSWORD)
+#   - Administration > List Auth Keys > add key  -> paste into .env MISP_AUTH_KEY,
+#     the Wazuh custom-misp integration, TheHive, and Cortex's MISP analyzer.
+#   - Sync Actions > Feeds > enable the default CIRCL + abuse.ch feeds, then
+#     "Fetch and store all feed data" (see feeds.md).
+name: soc-misp
+
+services:
+  misp-db:
+    image: mariadb:10.11
+    restart: always
+    environment:
+      - MYSQL_USER=misp
+      - MYSQL_PASSWORD=${MISP_ADMIN_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MISP_ADMIN_PASSWORD}
+      - MYSQL_DATABASE=misp
+    command: --innodb-buffer-pool-size=512M --innodb-change-buffering=none
+    volumes:
+      - misp_db:/var/lib/mysql
+
+  misp-redis:
+    image: redis:7
+    restart: always
+    volumes:
+      - misp_redis:/data
+
+  misp-core:
+    image: ghcr.io/misp/misp-docker/misp-core:${MISP_VERSION}
+    restart: always
+    depends_on:
+      - misp-db
+      - misp-redis
+    ports:
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - BASE_URL=${MISP_BASEURL}
+      - MYSQL_HOST=misp-db
+      - MYSQL_USER=misp
+      - MYSQL_PASSWORD=${MISP_ADMIN_PASSWORD}
+      - MYSQL_DATABASE=misp
+      - REDIS_FQDN=misp-redis
+      - ADMIN_EMAIL=${MISP_ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${MISP_ADMIN_PASSWORD}
+      - ADMIN_ORG=SOC-LAB
+      - ENABLE_DB_SETTINGS=true
+    volumes:
+      - misp_config:/var/www/MISP/app/Config
+      - misp_files:/var/www/MISP/app/files
+      - misp_logs:/var/www/MISP/app/tmp/logs
+
+  misp-modules:
+    image: ghcr.io/misp/misp-docker/misp-modules:latest
+    restart: always
+    depends_on:
+      - misp-redis
+    environment:
+      - REDIS_BACKEND=misp-redis
+
+volumes:
+  misp_db:
+  misp_redis:
+  misp_config:
+  misp_files:
+  misp_logs:

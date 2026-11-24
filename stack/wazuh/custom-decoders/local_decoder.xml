@@ -1,0 +1,12 @@
+<!--
+  Custom decoders. Sysmon (windows_eventchannel), Suricata EVE (json) and auditd
+  are already decoded by Wazuh's built-in decoders, so nothing is needed for the
+  core telemetry. Add app-specific decoders here as you onboard new sources
+  (e.g. a homegrown app log, GoPhish webhook forwarded via syslog).
+
+  Kept as a valid, minimal file so the compose bind-mount always resolves.
+-->
+<decoder name="soc-lab-json">
+  <prematch>^{</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

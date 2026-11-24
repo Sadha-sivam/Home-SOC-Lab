@@ -1,0 +1,9 @@
+#!/bin/sh
+# Wazuh integration wrapper. Wazuh calls:
+#   custom-misp <alert_file> <api_key> <hook_url> [options]
+# We forward those args to the python script, preferring Wazuh's bundled python.
+SCRIPT_PATH_NAME="$0"
+DIR_NAME="$(cd "$(dirname "${SCRIPT_PATH_NAME}")"; pwd -P)"
+PY="${DIR_NAME}/../framework/python/bin/python3"
+[ -x "${PY}" ] || PY="$(command -v python3)"
+exec "${PY}" "${DIR_NAME}/custom-misp.py" "$@"

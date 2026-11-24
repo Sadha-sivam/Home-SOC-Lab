@@ -1,0 +1,40 @@
+title: Office Application Spawning a Script Interpreter
+id: 6c3d9f01-2b7a-4f1e-9a1c-0f2e7b5d1a01
+status: experimental
+description: >
+  An Office application spawned a shell or scripting host — the classic
+  phishing/macro initial-access-to-execution pivot (winword.exe -> powershell.exe).
+references:
+  - https://attack.mitre.org/techniques/T1566/001/
+  - https://attack.mitre.org/techniques/T1059/001/
+author: home-soc-lab
+date: 2026/07/31
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+      - '\onenote.exe'
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+  condition: selection
+falsepositives:
+  - Some enterprise add-ins legitimately shell out; baseline per environment.
+level: high
+tags:
+  - attack.initial-access
+  - attack.execution
+  - attack.t1566.001
+  - attack.t1059.001

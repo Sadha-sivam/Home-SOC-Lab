@@ -1,0 +1,86 @@
+<!--
+  Curated Sysmon config for the SOC lab. Focused on the high-value event IDs the
+  detection rules depend on (see stack/wazuh/custom-rules/local_rules.xml and
+  detections/sigma/). Philosophy per guide §3.2: reduce NOISE, not VISIBILITY —
+  we exclude known-good chatter, never whole event IDs.
+
+  For production breadth, swap in Olaf Hartong's sysmon-modular or SwiftOnSecurity's
+  config. This one is deliberately small so it's auditable and fast to reason about.
+-->
+<Sysmon schemaversion="4.90">
+  <HashAlgorithms>SHA256,IMPHASH</HashAlgorithms>
+  <DnsLookup>False</DnsLookup>
+  <EventFiltering>
+
+    <!-- EID 1: process creation. Log everything, drop only high-volume benign. -->
+    <RuleGroup name="proc-create" groupRelation="or">
+      <ProcessCreate onmatch="exclude">
+        <Image condition="is">C:\Windows\System32\SearchIndexer.exe</Image>
+        <Image condition="is">C:\Windows\System32\svchost.exe</Image>
+        <CommandLine condition="contains">MpCmdRun.exe</CommandLine>
+      </ProcessCreate>
+    </RuleGroup>
+
+    <!-- EID 3: network connection. Exclude loopback + the Wazuh agent's own beacon. -->
+    <RuleGroup name="net-connect" groupRelation="or">
+      <NetworkConnect onmatch="exclude">
+        <DestinationIp condition="is">127.0.0.1</DestinationIp>
+        <DestinationIp condition="is">::1</DestinationIp>
+        <Image condition="contains">wazuh-agent</Image>
+      </NetworkConnect>
+    </RuleGroup>
+
+    <!-- EID 7: image load — catch unsigned/sideloaded DLLs. -->
+    <RuleGroup name="image-load" groupRelation="or">
+      <ImageLoad onmatch="include">
+        <Signed condition="is">false</Signed>
+      </ImageLoad>
+    </RuleGroup>
+
+    <!-- EID 8: CreateRemoteThread — injection. Include from common injectors. -->
+    <RuleGroup name="remote-thread" groupRelation="or">
+      <CreateRemoteThread onmatch="include">
+        <SourceImage condition="contains any">powershell.exe;pwsh.exe;rundll32.exe;regsvr32.exe;cmd.exe;mshta.exe</SourceImage>
+      </CreateRemoteThread>
+    </RuleGroup>
+
+    <!-- EID 10: process access — LSASS credential theft (T1003.001). -->
+    <RuleGroup name="proc-access" groupRelation="or">
+      <ProcessAccess onmatch="include">
+        <TargetImage condition="image">lsass.exe</TargetImage>
+      </ProcessAccess>
+    </RuleGroup>
+
+    <!-- EID 11: file create — droppers, ransomware notes, startup folder. -->
+    <RuleGroup name="file-create" groupRelation="or">
+      <FileCreate onmatch="include">
+        <TargetFilename condition="contains">\Start Menu\Programs\Startup\</TargetFilename>
+        <TargetFilename condition="end with">.hta</TargetFilename>
+        <TargetFilename condition="end with">.ps1</TargetFilename>
+        <TargetFilename condition="end with">.scr</TargetFilename>
+        <TargetFilename condition="contains">\Temp\</TargetFilename>
+      </FileCreate>
+    </RuleGroup>
+
+    <!-- EID 12/13: registry — autostart persistence (T1547.001). -->
+    <RuleGroup name="registry" groupRelation="or">
+      <RegistryEvent onmatch="include">
+        <TargetObject condition="contains">\CurrentVersion\Run</TargetObject>
+        <TargetObject condition="contains">\CurrentVersion\RunOnce</TargetObject>
+        <TargetObject condition="contains">\Policies\Explorer\Run</TargetObject>
+        <TargetObject condition="contains">\Services\</TargetObject>
+      </RegistryEvent>
+    </RuleGroup>
+
+    <!-- EID 22: DNS query — C2 / exfil. Exclude Microsoft + agent noise. -->
+    <RuleGroup name="dns" groupRelation="or">
+      <DnsQuery onmatch="exclude">
+        <QueryName condition="end with">.microsoft.com</QueryName>
+        <QueryName condition="end with">.windowsupdate.com</QueryName>
+        <QueryName condition="end with">.msftconnecttest.com</QueryName>
+        <QueryName condition="end with">.in-addr.arpa</QueryName>
+      </DnsQuery>
+    </RuleGroup>
+
+  </EventFiltering>
+</Sysmon>

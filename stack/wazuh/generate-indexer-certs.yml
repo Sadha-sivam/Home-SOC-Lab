@@ -1,0 +1,13 @@
+# One-shot cert generator for the Wazuh indexer/manager/dashboard TLS mesh.
+# Run via:  ../../soc.ps1 certs   (or: docker compose -f generate-indexer-certs.yml run --rm generator)
+# Reads config/certs.yml, writes the PEMs into config/wazuh_indexer_ssl_certs/.
+name: wazuh-certs
+
+services:
+  generator:
+    image: wazuh/wazuh-certs-generator:0.0.2
+    hostname: wazuh-certs-generator
+    volumes:
+      - ./config/wazuh_indexer_ssl_certs/:/certificates/
+      - ./config/certs.yml:/config/certs.yml
+    entrypoint: sh -c "/entrypoint.sh; chown -R 1000:1000 /certificates"

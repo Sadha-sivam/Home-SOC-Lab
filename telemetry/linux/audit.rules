@@ -1,0 +1,54 @@
+## home-soc-lab curated auditd ruleset (subset of Neo23x0/auditd, tuned for the lab).
+## Keys are chosen to match Wazuh local rule 100700 (susp_activity/recon/priv_esc/
+## shell_config/sudoers/T1543/T1548). Drop this at /etc/audit/rules.d/soc-lab.rules
+## then: augenrules --load
+##
+## Order matters. Delete existing rules, set failure mode, then add ours.
+
+-D
+-b 8192
+-f 1
+
+## ── Identity & auth config changes ──────────────────────────────────────────
+-w /etc/passwd    -p wa -k identity
+-w /etc/group     -p wa -k identity
+-w /etc/shadow    -p wa -k identity
+-w /etc/gshadow   -p wa -k identity
+-w /etc/sudoers   -p wa -k sudoers
+-w /etc/sudoers.d/ -p wa -k sudoers
+
+## ── Shell / persistence config (T1543, T1546) ───────────────────────────────
+-w /etc/profile.d/ -p wa -k shell_config
+-w /etc/profile    -p wa -k shell_config
+-w /etc/bashrc     -p wa -k shell_config
+-w /etc/cron.d/    -p wa -k T1543
+-w /etc/crontab    -p wa -k T1543
+-w /etc/systemd/system/ -p wa -k T1543
+
+## ── Privilege escalation (T1548): setuid/setgid execution ────────────────────
+-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k priv_esc
+-a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -k priv_esc
+-a always,exit -F arch=b64 -S setuid -S setgid -S setreuid -S setregid -k T1548
+-w /bin/su       -p x -k priv_esc
+-w /usr/bin/sudo -p x -k priv_esc
+
+## ── Recon / discovery binaries (T1087, T1057, T1018) ────────────────────────
+-w /usr/bin/whoami   -p x -k recon
+-w /usr/bin/id       -p x -k recon
+-w /usr/bin/netstat  -p x -k recon
+-w /usr/bin/ss       -p x -k recon
+-w /usr/bin/nmap     -p x -k recon
+
+## ── Suspicious execution: all execve on the enterprise VLAN victim ───────────
+## (High volume — enable on victims you're actively testing, not every host.)
+-a always,exit -F arch=b64 -S execve -F key=susp_activity
+-a always,exit -F arch=b32 -S execve -F key=susp_activity
+
+## ── Sensitive file access (SSH keys) ────────────────────────────────────────
+## Watches don't glob, so we catch opens of ssh material via a syscall rule
+## filtered on the .ssh path prefix instead.
+-w /root/.ssh/ -p rwa -k susp_activity
+-a always,exit -F arch=b64 -S openat -F dir=/home -F success=1 -k susp_activity
+
+## Make the config immutable until reboot (uncomment for hardened runs):
+## -e 2

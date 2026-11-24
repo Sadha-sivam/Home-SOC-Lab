@@ -1,0 +1,30 @@
+# Network sensor: Suricata (signature IDS, ET Open) + Zeek (protocol metadata).
+# Runs ON the sensor VM (10.10.10.50), which hangs off the firewall SPAN/mirror
+# port so it passively sees Enterprise<->Attacker traffic.
+#
+#   SPAN_IFACE=ens19 docker compose up -d      # set to your mirror interface
+#
+# Both write to host paths that the Wazuh agent on this box tails
+# (see ../../stack/wazuh/shared-agent.conf: /var/log/suricata/eve.json + zeek logs).
+name: soc-sensor
+
+services:
+  suricata:
+    image: jasonish/suricata:latest
+    restart: unless-stopped
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW, SYS_NICE]
+    # -s loads our custom rules IN ADDITION to the ET Open set the image manages.
+    command: -i ${SPAN_IFACE:-eth0} -s /etc/suricata/rules/custom.rules
+    volumes:
+      - /var/log/suricata:/var/log/suricata
+      - ./suricata/custom.rules:/etc/suricata/rules/custom.rules:ro
+
+  zeek:
+    image: zeek/zeek:latest
+    restart: unless-stopped
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    command: zeek -i ${SPAN_IFACE:-eth0} LogAscii::use_json=T local
+    volumes:
+      - /opt/zeek/logs:/opt/zeek/logs

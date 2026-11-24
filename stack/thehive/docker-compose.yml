@@ -1,0 +1,78 @@
+# TheHive 5 (case management) + Cortex (analyzers/responders) + their backends.
+# TheHive: Cassandra (graph) + Elasticsearch (index) + local file storage.
+# Cortex:  shares the Elasticsearch instance.
+#
+# After first boot:
+#   1. Cortex (http://localhost:9001): create the superadmin, then an org + a user
+#      with an API key; enable analyzers (VirusTotal, AbuseIPDB, MISP).
+#   2. Paste that Cortex API key into config/thehive/application.conf (cortex block)
+#      and restart thehive so cases can run analyzers.
+name: soc-thehive
+
+services:
+  cassandra:
+    image: cassandra:${CASSANDRA_VERSION}
+    hostname: cassandra
+    restart: always
+    environment:
+      - CASSANDRA_CLUSTER_NAME=thp
+      - MAX_HEAP_SIZE=1024M
+      - HEAP_NEWSIZE=1024M
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+
+  elasticsearch:
+    image: elasticsearch:7.17.28
+    hostname: elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  cortex:
+    image: thehiveproject/cortex:${CORTEX_VERSION}
+    hostname: cortex
+    restart: always
+    depends_on:
+      - elasticsearch
+    ports:
+      - "9001:9001"
+    environment:
+      - job_directory=/tmp/cortex-jobs
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # Cortex runs analyzers as containers
+      - ./config/cortex/application.conf:/etc/cortex/application.conf
+      - cortex_jobs:/tmp/cortex-jobs
+
+  thehive:
+    image: strangebee/thehive:${THEHIVE_VERSION}
+    hostname: thehive
+    restart: always
+    depends_on:
+      - cassandra
+      - elasticsearch
+      - cortex
+    ports:
+      - "9000:9000"
+    command:
+      - --no-config
+      - --config
+      - /etc/thehive/application.conf
+    volumes:
+      - ./config/thehive/application.conf:/etc/thehive/application.conf
+      - thehive_data:/opt/thp/thehive/files
+
+volumes:
+  cassandra_data:
+  es_data:
+  cortex_jobs:
+  thehive_data:

@@ -1,0 +1,25 @@
+title: SSH Brute Force From a Single Source
+id: 6c3d9f01-2b7a-4f1e-9a1c-0f2e7b5d1b01
+status: experimental
+description: >
+  Repeated SSH auth failures from one source in a short window. The "brute force
+  then successful login" composite lives in Wazuh (local rule 100210).
+references:
+  - https://attack.mitre.org/techniques/T1110/
+author: home-soc-lab
+date: 2026/07/31
+logsource:
+  product: linux
+  service: sshd
+detection:
+  selection:
+    - 'Failed password for'
+    - 'Failed password for invalid user'
+  timeframe: 2m
+  condition: selection | count() by src_ip > 10
+falsepositives:
+  - Broken automation reconnecting with stale keys/passwords.
+level: high
+tags:
+  - attack.credential-access
+  - attack.t1110

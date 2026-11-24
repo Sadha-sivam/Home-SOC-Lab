@@ -1,0 +1,26 @@
+title: Multiple Failed Logons From a Single Source
+id: 6c3d9f01-2b7a-4f1e-9a1c-0f2e7b5d1a05
+status: experimental
+description: >
+  10+ failed interactive/network logons (EID 4625) from one source IP inside 5
+  minutes — password brute force or spraying. The higher-fidelity "brute force
+  THEN success" composite lives in Wazuh (local rule 100201), which Sigma's
+  single-stream count can't express.
+references:
+  - https://attack.mitre.org/techniques/T1110/
+author: home-soc-lab
+date: 2026/07/31
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4625
+  timeframe: 5m
+  condition: selection | count() by IpAddress > 10
+falsepositives:
+  - A misconfigured service account hammering a host; allow-list its source.
+level: high
+tags:
+  - attack.credential-access
+  - attack.t1110

@@ -1,0 +1,67 @@
+# Shuffle SOAR — frontend + backend + orborus (app runner) + opensearch (db).
+# Based on the official Shuffle compose. OpenSearch security is disabled for the
+# lab to avoid the cert/cred dance; do NOT expose this beyond the SOC VLAN.
+#
+# First boot: open http://localhost:3001, create the admin user, then build (or
+# import) the triage workflow from ../../response/playbooks/shuffle-triage.md.
+# The workflow's webhook URL is what you paste into Wazuh's <integration> block.
+name: soc-shuffle
+
+services:
+  shuffle-frontend:
+    image: ghcr.io/shuffle/shuffle-frontend:${SHUFFLE_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - shuffle-backend
+    ports:
+      - "3001:80"
+      - "3443:443"
+    environment:
+      - BACKEND_HOSTNAME=shuffle-backend
+
+  shuffle-backend:
+    image: ghcr.io/shuffle/shuffle-backend:${SHUFFLE_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - shuffle-opensearch
+    ports:
+      - "5001:5001"
+    environment:
+      - SHUFFLE_APP_HOTLOAD_FOLDER=/shuffle-apps
+      - ORG_ID=Shuffle
+      - SHUFFLE_OPENSEARCH_URL=http://shuffle-opensearch:9200
+      - SHUFFLE_ELASTIC=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./shuffle-apps:/shuffle-apps
+      - ./shuffle-files:/shuffle-files
+
+  shuffle-orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:${SHUFFLE_VERSION}
+    restart: unless-stopped
+    environment:
+      - SHUFFLE_APP_SDK_TIMEOUT=300
+      - ENVIRONMENT_NAME=Shuffle
+      - ORG_ID=Shuffle
+      - BASE_URL=http://shuffle-backend:5001
+      - DOCKER_API_VERSION=1.40
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  shuffle-opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${SHUFFLE_OPENSEARCH_PASSWORD}
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - shuffle_opensearch:/usr/share/opensearch/data
+
+volumes:
+  shuffle_opensearch:

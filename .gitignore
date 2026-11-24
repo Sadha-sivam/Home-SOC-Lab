@@ -1,0 +1,23 @@
+# Secrets — never commit
+.env
+*.key
+*.pem
+!**/certs.yml
+stack/wazuh/config/wazuh_indexer_ssl_certs/
+stack/misp/ssl/
+
+# Runtime data / volumes accidentally bind-mounted locally
+**/data/
+**/logs/
+*.log
+
+# Emulation artifacts (loot, dumps, captured creds from your own tests)
+emulation/**/loot/
+*.pcap
+*.dmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

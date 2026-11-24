@@ -1,0 +1,42 @@
+title: LOLBin Used For Download or Proxy Execution
+id: 6c3d9f01-2b7a-4f1e-9a1c-0f2e7b5d1a06
+status: experimental
+description: >
+  A living-off-the-land binary (certutil, mshta, regsvr32, rundll32, bitsadmin)
+  invoked with a URL or proxy-execution switch — remote payload retrieval or
+  signed-binary proxy execution.
+references:
+  - https://attack.mitre.org/techniques/T1105/
+  - https://attack.mitre.org/techniques/T1218/
+  - https://lolbas-project.github.io/
+author: home-soc-lab
+date: 2026/07/31
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_img:
+    Image|endswith:
+      - '\certutil.exe'
+      - '\mshta.exe'
+      - '\regsvr32.exe'
+      - '\rundll32.exe'
+      - '\bitsadmin.exe'
+  selection_arg:
+    CommandLine|contains:
+      - 'http://'
+      - 'https://'
+      - 'ftp://'
+      - '-urlcache'
+      - 'javascript:'
+      - 'scrobj.dll'
+      - '/i:'
+  condition: selection_img and selection_arg
+falsepositives:
+  - certutil for legitimate cert ops; scope by unusual parent or user context.
+level: high
+tags:
+  - attack.command-and-control
+  - attack.defense-evasion
+  - attack.t1105
+  - attack.t1218

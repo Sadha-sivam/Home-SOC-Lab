@@ -1,0 +1,22 @@
+---
+# Wazuh indexer internal users. Hashes below are the stock Wazuh demo hashes:
+#   admin        -> "SecretPassword"   (this is your INDEXER_PASSWORD)
+#   kibanaserver -> "kibanaserver"     (this is your DASHBOARD_PASSWORD)
+# ROTATE THESE before exposing anything — see docs/hardening.md. Rotation means
+# regenerating both the hash here AND the matching value in .env, then re-running
+# securityadmin. Changing only .env breaks auth.
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+admin:
+  hash: "$2y$12$K/SpwjtB.wOHJ/Nc6GVRDuc1h0rM1DfvziFRNPtk27P.c4yDr9njO"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Wazuh admin user"
+
+kibanaserver:
+  hash: "$2y$12$4AcgAt3xwOWadA5s5blL6ev39OXDNhmOesEoo33eZtrq2N0YrhG6S"
+  reserved: true
+  description: "Wazuh dashboard service account"
